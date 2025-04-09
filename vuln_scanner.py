@@ -11,6 +11,8 @@ import os
 import ipaddress
 from typing import Optional, List
 import concurrent.futures
+import time
+import re
 
 app = typer.Typer()
 console = Console()
@@ -26,6 +28,33 @@ class VulnerabilityScanner:
             'vulnerabilities': [],
             'active_hosts': []
         }
+        # Liste des services communs et leurs ports par défaut
+        self.common_services = {
+            'http': [80, 8080, 8443],
+            'https': [443, 8443],
+            'ssh': [22],
+            'ftp': [21],
+            'smtp': [25, 465, 587],
+            'pop3': [110, 995],
+            'imap': [143, 993],
+            'rdp': [3389],
+            'vnc': [5900],
+            'mysql': [3306],
+            'postgresql': [5432],
+            'mssql': [1433],
+            'oracle': [1521],
+            'dns': [53],
+            'smb': [139, 445],
+            'telnet': [23]
+        }
+
+    def clean_version(self, version: str) -> str:
+        """Nettoie la version pour une meilleure correspondance"""
+        # Extraction du numéro de version
+        version_match = re.search(r'(\d+\.\d+(\.\d+)?)', version)
+        if version_match:
+            return version_match.group(1)
+        return version
 
     def scan_network(self, network: str) -> List[str]:
         """Scanne un réseau pour détecter les hôtes actifs"""
@@ -75,11 +104,11 @@ class VulnerabilityScanner:
             task = progress.add_task("[cyan]Scanning...", total=100)
             
             # Configuration du scan en fonction du type
-            scan_args = '-sV -O -p-'  # Scan de base avec tous les ports
+            scan_args = '-sV -O --version-intensity 7'  # Scan de base avec détection de version approfondie
             if scan_type == "aggressive":
-                scan_args = '-sV -O -A -T4 -p-'
+                scan_args = '-sV -O -A -T4 --version-intensity 9'
             elif scan_type == "stealth":
-                scan_args = '-sV -O -T2 -p-'
+                scan_args = '-sV -O -T2 --version-intensity 5'
             
             # Scan des ports
             self.nm.scan(target, arguments=scan_args)
@@ -90,13 +119,20 @@ class VulnerabilityScanner:
                     ports = self.nm[host][proto].keys()
                     for port in ports:
                         service = self.nm[host][proto][port]
-                        self.results['open_ports'].append({
-                            'port': port,
-                            'state': service['state'],
-                            'service': service['name'],
-                            'version': service.get('version', 'unknown'),
-                            'protocol': proto
-                        })
+                        if service['state'] == 'open':  # Ne garder que les ports ouverts
+                            version = service.get('version', 'unknown')
+                            if version != 'unknown':
+                                version = self.clean_version(version)
+                            
+                            self.results['open_ports'].append({
+                                'port': port,
+                                'state': service['state'],
+                                'service': service['name'].lower(),
+                                'version': version,
+                                'protocol': proto,
+                                'product': service.get('product', ''),
+                                'extrainfo': service.get('extrainfo', '')
+                            })
                 
                 # Détection OS avec gestion d'erreur
                 try:
@@ -123,29 +159,78 @@ class VulnerabilityScanner:
             
             for port_info in self.results['open_ports']:
                 if port_info['version'] != 'unknown':
-                    # Recherche de CVEs via l'API NIST
-                    url = f"https://services.nvd.nist.gov/rest/json/cves/1.0?keyword={port_info['service']} {port_info['version']}"
-                    try:
-                        response = requests.get(url)
-                        if response.status_code == 200:
-                            data = response.json()
-                            for cve in data.get('result', {}).get('CVE_Items', []):
-                                cve_id = cve['cve']['CVE_data_meta']['ID']
-                                description = cve['cve']['description']['description_data'][0]['value']
-                                severity = cve.get('impact', {}).get('baseMetricV3', {}).get('cvssV3', {}).get('baseSeverity', 'UNKNOWN')
+                    # Construction des termes de recherche
+                    search_terms = set()
+                    
+                    # Ajout des termes de recherche basés sur le service et la version
+                    if port_info['service']:
+                        search_terms.add(f"{port_info['service']} {port_info['version']}")
+                        search_terms.add(port_info['service'])
+                    
+                    # Ajout des termes basés sur le produit si disponible
+                    if port_info['product']:
+                        search_terms.add(f"{port_info['product']} {port_info['version']}")
+                        search_terms.add(port_info['product'])
+                    
+                    for search_term in search_terms:
+                        try:
+                            time.sleep(0.5)  # Respect des limites de l'API
+                            
+                            url = f"https://services.nvd.nist.gov/rest/json/cves/1.0?keyword={search_term}"
+                            headers = {
+                                'User-Agent': 'VulnerabilityScanner/1.0',
+                                'Accept': 'application/json'
+                            }
+                            
+                            response = requests.get(url, headers=headers, timeout=10)
+                            
+                            if response.status_code == 200:
+                                data = response.json()
+                                total_results = data.get('totalResults', 0)
                                 
-                                self.results['vulnerabilities'].append({
-                                    'cve_id': cve_id,
-                                    'service': port_info['service'],
-                                    'version': port_info['version'],
-                                    'severity': severity,
-                                    'description': description,
-                                    'port': port_info['port']
-                                })
-                    except requests.RequestException as e:
-                        console.print(f"[yellow]Avertissement : Erreur lors de la recherche de vulnérabilités pour {port_info['service']} {port_info['version']}[/yellow]")
+                                if total_results > 0:
+                                    for cve in data.get('result', {}).get('CVE_Items', []):
+                                        cve_id = cve['cve']['CVE_data_meta']['ID']
+                                        
+                                        # Vérification si la CVE est déjà dans la liste
+                                        if not any(v['cve_id'] == cve_id for v in self.results['vulnerabilities']):
+                                            description = cve['cve']['description']['description_data'][0]['value']
+                                            
+                                            # Récupération de la sévérité
+                                            severity = 'UNKNOWN'
+                                            cvss_v3 = cve.get('impact', {}).get('baseMetricV3', {}).get('cvssV3', {})
+                                            if cvss_v3:
+                                                severity = cvss_v3.get('baseSeverity', 'UNKNOWN')
+                                            else:
+                                                cvss_v2 = cve.get('impact', {}).get('baseMetricV2', {}).get('cvssV2', {})
+                                                if cvss_v2:
+                                                    severity = cvss_v2.get('severity', 'UNKNOWN')
+                                            
+                                            self.results['vulnerabilities'].append({
+                                                'cve_id': cve_id,
+                                                'service': port_info['service'],
+                                                'version': port_info['version'],
+                                                'severity': severity,
+                                                'description': description,
+                                                'port': port_info['port'],
+                                                'search_term': search_term,
+                                                'product': port_info['product']
+                                            })
+                                            
+                                            console.print(f"[yellow]CVE trouvée : {cve_id} ({severity}) - {port_info['service']} {port_info['version']}[/yellow]")
+                            
+                        except requests.RequestException as e:
+                            console.print(f"[yellow]Avertissement : Erreur lors de la recherche de vulnérabilités pour {search_term}[/yellow]")
+                            continue
+                        except Exception as e:
+                            console.print(f"[red]Erreur inattendue : {str(e)}[/red]")
+                            continue
                 
                 progress.update(task, advance=1)
+            
+            # Tri des vulnérabilités par sévérité
+            severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'UNKNOWN': 4}
+            self.results['vulnerabilities'].sort(key=lambda x: severity_order.get(x['severity'], 5))
 
     def generate_report(self, output_dir: Optional[str] = None):
         """Génère un rapport HTML"""

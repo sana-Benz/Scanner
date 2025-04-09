@@ -4,151 +4,178 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rapport de Scan - {{ target }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .severity-critical { color: #dc3545; }
-        .severity-high { color: #fd7e14; }
-        .severity-medium { color: #ffc107; }
-        .severity-low { color: #28a745; }
-        .severity-unknown { color: #6c757d; }
-        .port-open { color: #28a745; }
-        .port-closed { color: #dc3545; }
-        .port-filtered { color: #ffc107; }
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        .summary {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .severity-critical {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .severity-high {
+            color: #fd7e14;
+            font-weight: bold;
+        }
+        .severity-medium {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .severity-low {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .port-open {
+            color: #28a745;
+        }
+        .port-closed {
+            color: #dc3545;
+        }
+        .port-filtered {
+            color: #6c757d;
+        }
+        .legend {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .legend-item {
+            display: inline-block;
+            margin-right: 20px;
+        }
     </style>
 </head>
 <body>
-    <div class="container mt-4">
-        <h1 class="mb-4">Rapport de Scan - {{ target }}</h1>
-        
-        <div class="card mb-4">
-            <div class="card-header">
-                <h2>Résumé du Scan</h2>
+    <div class="container">
+        <h1>Rapport de Scan - {{ target }}</h1>
+        <p>Date du scan : {{ scan_time }}</p>
+
+        <div class="summary">
+            <h2>Résumé</h2>
+            <p>Nombre de ports ouverts : {{ open_ports|length }}</p>
+            <p>Système d'exploitation détecté : {{ os_info }}</p>
+            <p>Nombre de vulnérabilités trouvées : {{ vulnerabilities|length }}</p>
+        </div>
+
+        <div class="legend">
+            <h3>Légende</h3>
+            <div class="legend-item">
+                <span class="severity-critical">●</span> Critique
             </div>
-            <div class="card-body">
-                <p><strong>Cible :</strong> {{ target }}</p>
-                <p><strong>Date du scan :</strong> {{ scan_time }}</p>
-                <p><strong>Système d'exploitation détecté :</strong> {{ os_info }}</p>
-                <p><strong>Nombre de ports ouverts :</strong> {{ open_ports|length }}</p>
-                <p><strong>Nombre de vulnérabilités détectées :</strong> {{ vulnerabilities|length }}</p>
+            <div class="legend-item">
+                <span class="severity-high">●</span> Élevée
+            </div>
+            <div class="legend-item">
+                <span class="severity-medium">●</span> Moyenne
+            </div>
+            <div class="legend-item">
+                <span class="severity-low">●</span> Faible
             </div>
         </div>
 
-        <div class="card mb-4">
-            <div class="card-header">
-                <h2>Ports Ouverts</h2>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Port</th>
-                                <th>Protocole</th>
-                                <th>Service</th>
-                                <th>Version</th>
-                                <th>État</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for port in open_ports %}
-                            <tr>
-                                <td>{{ port.port }}</td>
-                                <td>{{ port.protocol }}</td>
-                                <td>{{ port.service }}</td>
-                                <td>{{ port.version }}</td>
-                                <td class="port-open">Ouvert</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        <h2>Ports Ouverts</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Port</th>
+                    <th>Protocole</th>
+                    <th>Service</th>
+                    <th>Produit</th>
+                    <th>Version</th>
+                    <th>État</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for port in open_ports %}
+                <tr>
+                    <td>{{ port.port }}</td>
+                    <td>{{ port.protocol }}</td>
+                    <td>{{ port.service }}</td>
+                    <td>{{ port.product }}</td>
+                    <td>{{ port.version }}</td>
+                    <td class="port-{{ port.state }}">{{ port.state }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
         {% if vulnerabilities %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h2>Vulnérabilités Détectées</h2>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>CVE ID</th>
-                                <th>Service</th>
-                                <th>Version</th>
-                                <th>Sévérité</th>
-                                <th>Description</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for vuln in vulnerabilities %}
-                            <tr>
-                                <td>
-                                    <a href="https://nvd.nist.gov/vuln/detail/{{ vuln.cve_id }}" target="_blank">
-                                        {{ vuln.cve_id }}
-                                    </a>
-                                </td>
-                                <td>{{ vuln.service }}</td>
-                                <td>{{ vuln.version }}</td>
-                                <td class="severity-{{ vuln.severity|lower }}">
-                                    {{ vuln.severity }}
-                                </td>
-                                <td>{{ vuln.description }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        <h2>Vulnérabilités Détectées</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>CVE ID</th>
+                    <th>Service</th>
+                    <th>Produit</th>
+                    <th>Version</th>
+                    <th>Sévérité</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vuln in vulnerabilities %}
+                <tr>
+                    <td>{{ vuln.cve_id }}</td>
+                    <td>{{ vuln.service }}</td>
+                    <td>{{ vuln.product }}</td>
+                    <td>{{ vuln.version }}</td>
+                    <td class="severity-{{ vuln.severity|lower }}">{{ vuln.severity }}</td>
+                    <td>{{ vuln.description }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% endif %}
 
         {% if active_hosts %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h2>Hôtes Actifs</h2>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Adresse IP</th>
-                                <th>Nom d'hôte</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for host in active_hosts %}
-                            <tr>
-                                <td>{{ host.ip }}</td>
-                                <td>{{ host.hostname }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        <h2>Hôtes Actifs</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Adresse IP</th>
+                    <th>Nom d'hôte</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for host in active_hosts %}
+                <tr>
+                    <td>{{ host.ip }}</td>
+                    <td>{{ host.hostname }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% endif %}
-
-        <div class="card mb-4">
-            <div class="card-header">
-                <h2>Légende</h2>
-            </div>
-            <div class="card-body">
-                <ul class="list-unstyled">
-                    <li><span class="severity-critical">CRITICAL</span> - Vulnérabilité critique nécessitant une attention immédiate</li>
-                    <li><span class="severity-high">HIGH</span> - Vulnérabilité importante nécessitant une attention rapide</li>
-                    <li><span class="severity-medium">MEDIUM</span> - Vulnérabilité modérée à traiter</li>
-                    <li><span class="severity-low">LOW</span> - Vulnérabilité mineure</li>
-                    <li><span class="severity-unknown">UNKNOWN</span> - Sévérité non déterminée</li>
-                </ul>
-            </div>
-        </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html> 
