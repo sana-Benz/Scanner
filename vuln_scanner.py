@@ -1,4 +1,4 @@
-import nmap3
+import nmap
 import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
@@ -17,7 +17,7 @@ console = Console()
 
 class VulnerabilityScanner:
     def __init__(self):
-        self.nm = nmap3.Nmap()
+        self.nm = nmap.PortScanner()
         self.results = {
             'target': '',
             'scan_time': '',
