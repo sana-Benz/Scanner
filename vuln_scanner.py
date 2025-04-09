@@ -184,8 +184,7 @@ class VulnerabilityScanner:
         
         console.print(table)
 
-@app.command()
-def scan(
+def main(
     target: str = typer.Argument(..., help="Adresse IP, nom d'hôte ou réseau CIDR à scanner"),
     scan_type: str = typer.Option("normal", "--type", "-t", help="Type de scan: normal, aggressive, stealth"),
     output_dir: Optional[str] = typer.Option(None, "--save", "-s", help="Répertoire de sortie pour le rapport"),
@@ -218,8 +217,5 @@ def scan(
     except Exception as e:
         console.print(f"[red]Erreur lors du scan : {str(e)}[/red]")
 
-def main():
-    app()
-
 if __name__ == "__main__":
-    main() 
+    typer.run(main) 
