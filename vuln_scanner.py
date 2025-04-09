@@ -75,21 +75,32 @@ class VulnerabilityScanner:
             task = progress.add_task("[cyan]Scanning...", total=100)
             
             # Configuration du scan en fonction du type
-            scan_args = '-sV -O'  # Scan de base
+            scan_args = '-sV -O -p- --open'  # Scan de base avec tous les ports
             if scan_type == "aggressive":
-                scan_args = '-sV -O -A -T4'
+                scan_args = '-sV -O -A -T4 -p- --open'
             elif scan_type == "stealth":
-                scan_args = '-sV -O -T2'
+                scan_args = '-sV -O -T2 -p- --open'
+            
+            console.print(f"[yellow]Arguments du scan : {scan_args}[/yellow]")
             
             # Scan des ports
             self.nm.scan(target, arguments=scan_args)
             
+            # Affichage des résultats bruts pour le débogage
+            console.print("\n[bold blue]Résultats bruts du scan :[/bold blue]")
+            console.print(self.nm.scaninfo())
+            
             # Mise à jour des résultats
             for host in self.nm.all_hosts():
+                console.print(f"\n[bold green]Hôte : {host}[/bold green]")
+                console.print(f"État : {self.nm[host].state()}")
+                
                 for proto in self.nm[host].all_protocols():
+                    console.print(f"\n[bold cyan]Protocole : {proto}[/bold cyan]")
                     ports = self.nm[host][proto].keys()
                     for port in ports:
                         service = self.nm[host][proto][port]
+                        console.print(f"Port {port}/{proto} : {service['state']} - {service['name']} {service.get('version', '')}")
                         self.results['open_ports'].append({
                             'port': port,
                             'state': service['state'],
@@ -102,6 +113,7 @@ class VulnerabilityScanner:
                 try:
                     if 'osmatch' in self.nm[host] and self.nm[host]['osmatch']:
                         self.results['os_info'] = self.nm[host]['osmatch'][0]['name']
+                        console.print(f"\n[bold yellow]OS détecté : {self.results['os_info']}[/bold yellow]")
                     else:
                         self.results['os_info'] = 'Inconnu'
                 except (IndexError, KeyError):
