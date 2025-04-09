@@ -1,4 +1,4 @@
-import nmap
+import nmap3
 import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
@@ -17,7 +17,7 @@ console = Console()
 
 class VulnerabilityScanner:
     def __init__(self):
-        self.nm = nmap.PortScanner()
+        self.nm = nmap3.Nmap()
         self.results = {
             'target': '',
             'scan_time': '',
@@ -218,5 +218,8 @@ def scan(
     except Exception as e:
         console.print(f"[red]Erreur lors du scan : {str(e)}[/red]")
 
+def main():
+    app()
+
 if __name__ == "__main__":
-    app() 
+    main() 
