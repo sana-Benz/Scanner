@@ -98,9 +98,14 @@ class VulnerabilityScanner:
                             'protocol': proto
                         })
                 
-                # Détection OS
-                if 'osmatch' in self.nm[host]:
-                    self.results['os_info'] = self.nm[host]['osmatch'][0]['name']
+                # Détection OS avec gestion d'erreur
+                try:
+                    if 'osmatch' in self.nm[host] and self.nm[host]['osmatch']:
+                        self.results['os_info'] = self.nm[host]['osmatch'][0]['name']
+                    else:
+                        self.results['os_info'] = 'Inconnu'
+                except (IndexError, KeyError):
+                    self.results['os_info'] = 'Inconnu'
             
             progress.update(task, completed=100)
 
