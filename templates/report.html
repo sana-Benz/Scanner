@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rapport de Vulnérabilités</title>
+    <title>Rapport de Scan - {{ target }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .severity-critical { color: #dc3545; }
@@ -11,11 +11,14 @@
         .severity-medium { color: #ffc107; }
         .severity-low { color: #28a745; }
         .severity-unknown { color: #6c757d; }
+        .port-open { color: #28a745; }
+        .port-closed { color: #dc3545; }
+        .port-filtered { color: #ffc107; }
     </style>
 </head>
 <body>
     <div class="container mt-4">
-        <h1 class="mb-4">Rapport de Vulnérabilités</h1>
+        <h1 class="mb-4">Rapport de Scan - {{ target }}</h1>
         
         <div class="card mb-4">
             <div class="card-header">
@@ -40,6 +43,7 @@
                         <thead>
                             <tr>
                                 <th>Port</th>
+                                <th>Protocole</th>
                                 <th>Service</th>
                                 <th>Version</th>
                                 <th>État</th>
@@ -49,9 +53,10 @@
                             {% for port in open_ports %}
                             <tr>
                                 <td>{{ port.port }}</td>
+                                <td>{{ port.protocol }}</td>
                                 <td>{{ port.service }}</td>
                                 <td>{{ port.version }}</td>
-                                <td>{{ port.state }}</td>
+                                <td class="port-open">Ouvert</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -60,6 +65,7 @@
             </div>
         </div>
 
+        {% if vulnerabilities %}
         <div class="card mb-4">
             <div class="card-header">
                 <h2>Vulnérabilités Détectées</h2>
@@ -97,6 +103,35 @@
                 </div>
             </div>
         </div>
+        {% endif %}
+
+        {% if active_hosts %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>Hôtes Actifs</h2>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Adresse IP</th>
+                                <th>Nom d'hôte</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for host in active_hosts %}
+                            <tr>
+                                <td>{{ host.ip }}</td>
+                                <td>{{ host.hostname }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <div class="card mb-4">
             <div class="card-header">
